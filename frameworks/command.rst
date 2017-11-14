@@ -25,16 +25,12 @@ Writing it can be done rather quickly, but the robotpy-wpilib-utilities package
 contains a pre-built skeleton class you can inherit, meaning that your program
 only needs to implement functions unique to your robot. Here is an example::
 
-    import wpilib
     from commandbased import CommandBasedRobot
-
-    from commands import AutonomousCommandGroup
+    from mycommands import AutonomousCommandGroup
 
     class MyRobot(CommandBasedRobot):
 
         def robotInit(self):
-            '''Initialize things like subsystems'''
-
             self.autonomous = AutonomousCommandGroup()
 
 
@@ -74,43 +70,34 @@ Subsystems
 ~~~~~~~~~~
 
 In C++ and Java, the recommended way of making subsystems available to Commands
-is to instantiate them in the ``init()`` method of a class that subclasses
-``Command``, and then use that as the base class for all of your classes. Even
-in those languages that can be a bit unwieldy, especially if you want your
-commands to inherit from multiple base classes.
+is to instantiate them as static members in the static ``init()`` method of a class that subclasses ``Command``, and then use that as the base class for all of your classes. Even in those languages that can be a bit unwieldy, especially if you want to override a specialized base class like ``InstantCommand``.
 
-A more appropriate method in Python is to instantiate your subsystems inside a
-module, then import that module anywhere you need subsystems. Here is a simple
-example of that module, which we will call ``subsystems``::
+Python is extremely versatile, and offers many ways to allow commands to access subsystems. Here is one possible implementation::
 
-    from subsystemtype import SubsystemType
-
-    subsystem1 = None
-
-    def init():
-        global subsystem1
-
+    def robotInit(self):
         subsystem1 = SubsystemType()
+        Command.getSubsystem1 = lambda x=0: subsystem1
 
-You can import this module in your ``robot.py`` and then call
-``subsystems.init()`` inside ``robotInit()`` before any commands are
-instantiated. Then you can access your subsystem from any Command like this::
+Then you can access your subsystem from any Command like this::
 
-    import subsystems
     from wpilib.command import InstantCommand
 
     class ExampleCommand(InstantCommand):
 
         def __init__(self):
-            self.requires(subsystems.subsystem1)
+            self.requires(self.getSubsystem1())
 
         def initialize(self):
-            subsystems.subsystem1.do_something()
+            self.getSubsystem1().do_something()
 
 By using this method you can override any Command provided by WPILib or
-robotpy-wpilib-utilities, with pythonic namespacing. For even better structure,
-make ``subsystems`` a package that holds the code for all of your subsystems, as
-demonstrated in the `example program <https://github.com/robotpy/examples/tree/master/command-based/subsystems>`_.
+robotpy-wpilib-utilities. You can see a slightly different method for making subsystems available in the `example program <https://github.com/robotpy/examples/tree/master/command-based/robot.py>`_.
+
+ .. note:: The placement of subsystem and command creation is very important. 
+           Subsystems must be instantiated in ``robotInit()``, and they must be 
+           created before any command that uses them. Additionally, if 
+           ``robotInit()`` is called multiple times, as happens in the simulator, 
+           your subsystems must be re-instantiated each time.
 
 RobotMap
 ~~~~~~~~
